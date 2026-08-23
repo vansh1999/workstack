@@ -3,19 +3,61 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: workstack
-      POSTGRES_PASSWORD: workstack
-      POSTGRES_DB: workstack
+      POSTGRES_USER: ${POSTGRES_USER:-workstack}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-workstack}
+      POSTGRES_DB: ${POSTGRES_DB:-workstack}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres-init:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U workstack -d workstack"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-workstack} -d ${POSTGRES_DB:-workstack}"]
       interval: 5s
       timeout: 5s
       retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-workstack}:${POSTGRES_PASSWORD:-workstack}@postgres:5432/${POSTGRES_DB:-workstack}
+      TEST_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-workstack}:${POSTGRES_PASSWORD:-workstack}@postgres:5432/workstack_test
+      SECRET_KEY: ${SECRET_KEY:-changeme-generate-a-real-secret-key}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      COOKIE_SECURE: "false"
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:5173}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      start_period: 15s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-5173}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 5
 
 volumes:
   postgres_data:

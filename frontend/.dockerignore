@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.git
+.gitignore
+*.md
+.env
+.env.*
+!.env.example
+coverage/
+.vite/
+npm-debug.log*
+.DS_Store
