@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: workstack
+data:
+  JWT_ALGORITHM: "HS256"
+  ACCESS_TOKEN_EXPIRE_MINUTES: "10080"
+  CORS_ORIGINS: "http://localhost"
+  COOKIE_NAME: "access_token"
+  COOKIE_SECURE: "false"
+  FRONTEND_BASE_URL: "http://localhost"
+  INVITATION_EXPIRE_HOURS: "168"

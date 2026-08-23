@@ -1,0 +1,68 @@
+Root level
+
+- namespace.yaml — creates the workstack namespace. Every other resource lives inside it, so all your app's k8s objects stay isolated and easy to kubectl delete namespace workstack if you want a clean wipe.
+- configmap.yaml (backend-config) — non-secret backend env vars: JWT algorithm, token expiry, CORS origins, cookie name/security flag, invitation expiry. Mounted into the backend via envFrom.
+- secret.yaml (backend-secret) — sensitive backend env vars: DATABASE_URL and SECRET_KEY. Uses stringData (plaintext in the manifest, k8s base64-encodes it into data on creation) — fine for local kind, called out in the file's own comment as dev-only until Secret Manager arrives later.
+- ingress.yaml — a single Ingress routing all traffic (/) to the frontend Service on port 8080. Uses ingressClassName: nginx, so it depends on the ingress-nginx controller being installed in the cluster.
+- kind-config.yaml — not a k8s manifest, a kind cluster config. Declares one control-plane node, labels it ingress-ready=true (required by ingress-nginx's kind manifest to schedule onto it), and maps host ports 80/443 into the node so the Ingress is reachable from your machine without kubectl port-forward.
+
+postgres/
+
+- deployment.yaml — single-replica Postgres 16 pod. Uses strategy: Recreate (not RollingUpdate) because the PVC below is ReadWriteOnce — two pods can't mount it at once, so k8s must fully kill the old pod before starting a new one. Has readiness/liveness probes via pg_isready.
+- service.yaml — internal ClusterIP-style Service named postgres, port 5432. This is exactly the DNS name (postgres) your DATABASE_URL in secret.yaml points at.
+- pvc.yaml — a 1Gi ReadWriteOnce PersistentVolumeClaim so Postgres data survives pod restarts/recreation (this is what step 12 in your verification checklist — kill and recreate the pod, confirm data persists — is testing).
+
+backend/
+
+- deployment.yaml — FastAPI backend, pinned to replicas: 1 on purpose (see the comment: Alembic migrations run unconditionally on container start with no locking, so a second replica racing the first on a fresh DB could conflict on DDL). Has all three probe types — startupProbe (tolerant, up to 60s for migrations to finish), readinessProbe, livenessProbe — all hitting /health. Resource requests/limits set.
+- service.yaml — ClusterIP Service, port 8000, selects app: backend. This is what the frontend's Nginx proxy and the HPA/PDB target.
+- hpa.yaml — HorizontalPodAutoscaler, 1–3 replicas, scales on 70% average CPU utilization.
+- pdb.yaml — PodDisruptionBudget, minAvailable: 1 — ensures voluntary disruptions (node drains, cluster upgrades) always leave at least one backend pod up.
+
+frontend/
+
+- deployment.yaml — Nginx-served React build, replicas: 2 fixed (no HPA on frontend — static file serving is cheap, less need to autoscale). Readiness/liveness probes hit / on 8080.
+- service.yaml — ClusterIP Service, port 8080, selects app: frontend. This is the Ingress's backend target.
+
+Commands used to stand this up
+
+1. Build the app images (from Stage 1's docker-compose.yml):
+   docker compose build backend frontend
+
+2. Create the cluster (distinct name from any other kind cluster on this machine):
+   kind create cluster --name workstack --config k8s/kind-config.yaml
+   kubectl config use-context kind-workstack
+
+3. Install cluster-level infra that kind doesn't ship by default — not app manifests, so applied directly from upstream URLs rather than living under k8s/:
+   kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+   kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=180s
+
+   kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+   kubectl patch deployment metrics-server -n kube-system --type='json' \
+     -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+   (metrics-server needs this patch because kind's kubelets use self-signed certs it wouldn't otherwise trust — without it, `kubectl top` and the HPA both stay stuck on <unknown>.)
+
+4. Load the locally-built images into the cluster's nodes (no registry involved at this stage):
+   kind load docker-image workstack-backend:latest workstack-frontend:latest --name workstack
+
+5. Apply the app manifests (namespace first, then everything else — every manifest sets its own namespace so order after that doesn't matter):
+   kubectl apply -f k8s/namespace.yaml
+   kubectl apply -R -f k8s/configmap.yaml -f k8s/secret.yaml -f k8s/postgres/ -f k8s/backend/ -f k8s/frontend/ -f k8s/ingress.yaml
+
+Redeploy after a code change (backend example, same pattern for frontend):
+   docker compose build backend
+   kind load docker-image workstack-backend:latest --name workstack
+   kubectl rollout restart deployment/backend -n workstack
+
+Checks performed and what they proved
+
+- kubectl get pods -n workstack -o wide → all pods Running/Ready. The backend pod actually crash-looped 3 times first (Postgres wasn't accepting TCP connections yet when it started) — expected, not a bug: the startupProbe held off readiness/liveness evaluation until the container succeeded, so Kubernetes self-healed it with no manual step, which is the raw-k8s equivalent of Compose's depends_on: condition: service_healthy.
+- kubectl get svc,pvc -n workstack → backend/frontend/postgres ClusterIPs up, postgres-data PVC Bound.
+- kubectl port-forward svc/backend 8000:8000 + curl localhost:8000/health → {"status":"ok report"} — confirms the backend process itself is healthy, checked directly since /health is mounted outside the /api/v1 prefix and isn't reachable through the Ingress.
+- curl http://localhost/ → 200, <title>Work Stack</title> — confirms the Ingress → frontend Service → Nginx path works.
+- Full register → cookie → authenticated request through http://localhost/api/v1/... → 201 then 200 on /auth/me using the Set-Cookie from registration — confirms Ingress → frontend Nginx proxy (/api/ → backend:8000) → backend, with the same same-origin cookie auth behavior as Stage 1, unchanged.
+- kubectl exec deploy/postgres -- psql ... "select count(*) from users" before and after kubectl delete pod -l app=postgres → same row count both times — confirms the PVC actually persists data across pod recreation, not just across container restarts.
+- kubectl top pods -n workstack + kubectl get hpa -n workstack → real CPU/memory numbers and a live cpu: 4%/70% target (not <unknown>) — confirms metrics-server is actually wired up and the HPA has something to scale on.
+- kubectl get pdb -n workstack → backend (1 replica, minAvailable: 1) shows ALLOWED DISRUPTIONS: 0; frontend (2 replicas, minAvailable: 1) shows ALLOWED DISRUPTIONS: 1 — confirms the PDBs are enforcing exactly what they're meant to: you can't voluntarily evict the only backend pod, but you can drain one of the two frontend pods.
+
+Not run yet (optional, left for hands-on exploration): a full kind delete cluster --name workstack + reapply to prove reproducibility from scratch, and a synthetic load-generator against backend:8000/health to watch the HPA actually scale replicas up and back down.

@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend
+  namespace: workstack
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: backend
