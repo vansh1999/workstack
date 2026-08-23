@@ -1,0 +1,197 @@
+/* Design tokens.
+ *
+ * Every colour gets its light value on bare `:root`. The dark values are then declared twice —
+ * once behind `prefers-color-scheme` (guarded so an explicit Light choice still wins) and once
+ * behind `[data-theme='dark']` (so an explicit Dark choice wins on a light-mode OS). No colour
+ * may have its only definition inside a media block.
+ */
+
+:root {
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 8px;
+  --space-4: 12px;
+  --space-5: 16px;
+  --space-6: 20px;
+  --space-7: 24px;
+  --space-8: 32px;
+  --space-9: 48px;
+
+  /* Radii — --radius is kept as the 6px alias the original stylesheet used. */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-full: 999px;
+
+  /* Type */
+  --text-2xs: 11px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-ui: 14px;
+  --text-base: 15px;
+  --text-lg: 17px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 28px;
+
+  /* Motion */
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Layout */
+  --sidebar-w: 248px;
+  --sidebar-w-collapsed: 64px;
+  --content-max: 1200px;
+
+  /* ---- Light palette ---- */
+  color-scheme: light;
+
+  --bg-canvas: #ffffff;
+  --bg-surface: #ffffff;
+  --bg-subtle: #fafafa;
+  --bg-hover: #f4f4f5;
+  --bg-active: #ececee;
+  --bg-overlay: rgb(24 24 27 / 0.4);
+
+  --fg: #18181b;
+  --fg-muted: #71717a;
+  --fg-subtle: #a1a1aa;
+
+  --border: #e8e8ea;
+  --border-strong: #d4d4d8;
+  --ring: #18181b;
+
+  --accent: #18181b;
+  --accent-hover: #2f2f36;
+  --accent-fg: #ffffff;
+
+  --red-fg: #b3261e;
+  --red-bg: #fdf1f0;
+  --red-border: #f3cfcb;
+
+  --amber-fg: #92610a;
+  --amber-bg: #fdf6e7;
+  --amber-border: #f0dfb4;
+
+  --green-fg: #1a7f4b;
+  --green-bg: #eef8f2;
+  --green-border: #c3e6d2;
+
+  --blue-fg: #2563a8;
+  --blue-bg: #eff5fd;
+  --blue-border: #c9dcf5;
+
+  --shadow-sm: 0 1px 2px rgb(24 24 27 / 0.06);
+  --shadow-md:
+    0 2px 8px rgb(24 24 27 / 0.08), 0 1px 2px rgb(24 24 27 / 0.04);
+  --shadow-lg:
+    0 12px 32px rgb(24 24 27 / 0.14), 0 2px 6px rgb(24 24 27 / 0.06);
+
+  /* Skeleton shimmer endpoints, so the keyframes stay theme-agnostic. */
+  --skeleton-base: #eeeef0;
+  --skeleton-sheen: #f7f7f8;
+}
+
+/* ---- Dark palette: OS preference, unless Light was chosen explicitly ---- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --bg-canvas: #141416;
+    --bg-surface: #1a1a1d;
+    --bg-subtle: #0c0c0e;
+    --bg-hover: #1f1f23;
+    --bg-active: #27272b;
+    --bg-overlay: rgb(0 0 0 / 0.6);
+
+    --fg: #f4f4f5;
+    --fg-muted: #a1a1aa;
+    --fg-subtle: #71717a;
+
+    --border: #26262a;
+    --border-strong: #3a3a40;
+    --ring: #d4d4d8;
+
+    --accent: #f4f4f5;
+    --accent-hover: #e4e4e7;
+    --accent-fg: #18181b;
+
+    --red-fg: #f8837a;
+    --red-bg: #2a1413;
+    --red-border: #55211e;
+
+    --amber-fg: #e0b055;
+    --amber-bg: #251c0c;
+    --amber-border: #4a3717;
+
+    --green-fg: #57c98a;
+    --green-bg: #0f2318;
+    --green-border: #1d4530;
+
+    --blue-fg: #7fb2ee;
+    --blue-bg: #101c2c;
+    --blue-border: #1f3b5c;
+
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-md: 0 2px 8px rgb(0 0 0 / 0.5), 0 1px 2px rgb(0 0 0 / 0.3);
+    --shadow-lg: 0 12px 32px rgb(0 0 0 / 0.6), 0 2px 6px rgb(0 0 0 / 0.4);
+
+    --skeleton-base: #202024;
+    --skeleton-sheen: #2a2a2f;
+  }
+}
+
+/* ---- Dark palette: chosen explicitly, wins on a light-mode OS ---- */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg-canvas: #141416;
+  --bg-surface: #1a1a1d;
+  --bg-subtle: #0c0c0e;
+  --bg-hover: #1f1f23;
+  --bg-active: #27272b;
+  --bg-overlay: rgb(0 0 0 / 0.6);
+
+  --fg: #f4f4f5;
+  --fg-muted: #a1a1aa;
+  --fg-subtle: #71717a;
+
+  --border: #26262a;
+  --border-strong: #3a3a40;
+  --ring: #d4d4d8;
+
+  --accent: #f4f4f5;
+  --accent-hover: #e4e4e7;
+  --accent-fg: #18181b;
+
+  --red-fg: #f8837a;
+  --red-bg: #2a1413;
+  --red-border: #55211e;
+
+  --amber-fg: #e0b055;
+  --amber-bg: #251c0c;
+  --amber-border: #4a3717;
+
+  --green-fg: #57c98a;
+  --green-bg: #0f2318;
+  --green-border: #1d4530;
+
+  --blue-fg: #7fb2ee;
+  --blue-bg: #101c2c;
+  --blue-border: #1f3b5c;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 2px 8px rgb(0 0 0 / 0.5), 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 12px 32px rgb(0 0 0 / 0.6), 0 2px 6px rgb(0 0 0 / 0.4);
+
+  --skeleton-base: #202024;
+  --skeleton-sheen: #2a2a2f;
+}

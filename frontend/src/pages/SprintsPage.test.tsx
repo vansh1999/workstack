@@ -1,13 +1,23 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 import { SprintsPage } from './SprintsPage'
 import { ProjectContext } from '../context/ProjectContext'
 import * as sprintsApi from '../api/sprints'
+import * as tasksApi from '../api/tasks'
 import type { WorkspaceRole } from '../api/workspaces'
 
 vi.mock('../api/sprints')
+// The page loads the project's tasks once to derive each sprint's progress bar.
+vi.mock('../api/tasks')
+
+beforeEach(() => {
+  // Call history does not reset between tests on its own, and one test asserts a mock was never
+  // called.
+  vi.clearAllMocks()
+  vi.mocked(tasksApi.listTasks).mockResolvedValue([])
+})
 
 function renderSprintsPage(role: WorkspaceRole) {
   return render(
@@ -89,6 +99,23 @@ describe('SprintsPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /create sprint/i }))
 
     expect(await screen.findByText('Sprint 2')).toBeInTheDocument()
+  })
+
+  it('refuses a mistyped year instead of saving a year-0026 sprint', async () => {
+    vi.mocked(sprintsApi.listSprints).mockResolvedValue([])
+
+    renderSprintsPage('OWNER')
+
+    await screen.findByText('No sprints yet.')
+    await userEvent.click(screen.getByRole('button', { name: /new sprint/i }))
+    await userEvent.type(screen.getByLabelText('Name'), 'Sep')
+    // Set directly: a date input will not accept a year-0026 value through simulated typing.
+    fireEvent.change(screen.getByLabelText('Start date'), { target: { value: '0026-09-10' } })
+    fireEvent.change(screen.getByLabelText('End date'), { target: { value: '0026-10-10' } })
+    fireEvent.submit(screen.getByLabelText('Name').closest('form') as HTMLFormElement)
+
+    expect(await screen.findByText(/four-digit year/i)).toBeInTheDocument()
+    expect(sprintsApi.createSprint).not.toHaveBeenCalled()
   })
 
   it('hides the "New sprint" action for members', async () => {

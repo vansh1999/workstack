@@ -1,69 +1,67 @@
-import { useEffect, useState } from 'react'
-import { Link, NavLink, Navigate, Outlet, useParams } from 'react-router-dom'
+import { useEffect, useMemo } from 'react'
+import { Navigate, Outlet, useParams } from 'react-router-dom'
 import * as projectsApi from '../api/projects'
-import type { Project } from '../api/projects'
-import { ApiError } from '../api/client'
 import { ProjectContext } from '../context/ProjectContext'
+import { useShell } from '../context/ShellContext'
+import { useResourceById } from '../hooks/useResourceById'
+import { PageHeader } from './PageHeader'
+import { Skeleton } from './Skeleton'
 
 export function ProjectLayout() {
   const { projectId } = useParams<{ projectId: string }>()
+  const { setActiveProject } = useShell()
 
-  const [project, setProject] = useState<Project | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [notFound, setNotFound] = useState(false)
+  const {
+    value: project,
+    isPending,
+    isNotFound,
+    error,
+    setValue: setProject,
+  } = useResourceById(
+    projectId,
+    projectsApi.getProject,
+    'Could not load this project. Please try again.',
+  )
 
+  // The shell renders the project's nav, and cannot read the project from the URL — the project
+  // routes are not nested under the workspace ones. See ShellContext.
   useEffect(() => {
-    if (!projectId) return
-    setIsLoading(true)
-    setNotFound(false)
-    projectsApi
-      .getProject(projectId)
-      .then(setProject)
-      .catch((err) => {
-        if (err instanceof ApiError && err.status === 404) setNotFound(true)
-      })
-      .finally(() => setIsLoading(false))
-  }, [projectId])
+    setActiveProject(project ?? null)
+    return () => setActiveProject(null)
+  }, [project, setActiveProject])
 
-  if (isLoading) {
-    return <p className="loading-state">Loading project…</p>
+  const projectContext = useMemo(
+    () => (project ? { project, setProject } : undefined),
+    [project, setProject],
+  )
+
+  if (isNotFound) {
+    return <Navigate to="/onboarding" replace />
   }
 
-  if (notFound || !project) {
-    return <Navigate to="/onboarding" replace />
+  if (error) {
+    return <div className="error-banner">{error}</div>
+  }
+
+  if (isPending || !project || !projectContext) {
+    return (
+      <div className="stack">
+        <Skeleton width="180px" height="24px" />
+        <Skeleton width="320px" />
+      </div>
+    )
   }
 
   return (
     <div className="project-page">
-      <Link className="project-page__back" to={`/workspaces/${project.workspace_id}`}>
-        ← {project.workspace_name}
-      </Link>
+      <PageHeader
+        title={project.name}
+        titleAside={<span className="key-chip">{project.key}</span>}
+        backTo={`/workspaces/${project.workspace_id}`}
+        backLabel={project.workspace_name}
+      />
 
-      <h1 className="dashboard__title">{project.name}</h1>
-
-      <div className="tabs">
-        <NavLink
-          to={`/projects/${project.id}`}
-          end
-          className={({ isActive }) => `tabs__item${isActive ? ' tabs__item--active' : ''}`}
-        >
-          Overview
-        </NavLink>
-        <NavLink
-          to={`/projects/${project.id}/sprints`}
-          className={({ isActive }) => `tabs__item${isActive ? ' tabs__item--active' : ''}`}
-        >
-          Sprints
-        </NavLink>
-        <NavLink
-          to={`/projects/${project.id}/board`}
-          className={({ isActive }) => `tabs__item${isActive ? ' tabs__item--active' : ''}`}
-        >
-          Board
-        </NavLink>
-      </div>
-
-      <ProjectContext.Provider value={{ project, setProject }}>
+      <ProjectContext.Provider value={projectContext}>
         <Outlet />
       </ProjectContext.Provider>
     </div>

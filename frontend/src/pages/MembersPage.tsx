@@ -1,11 +1,18 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useWorkspace } from '../context/WorkspaceContext'
+import { useToast } from '../context/ToastContext'
 import * as workspacesApi from '../api/workspaces'
 import { ApiError } from '../api/client'
+import { PageHeader } from '../components/PageHeader'
+import { Avatar } from '../components/Avatar'
+import { RoleBadge } from '../components/Badge'
+import { SkeletonRows } from '../components/Skeleton'
+import { IconAlert, IconCopy } from '../components/icons'
 
 export function MembersPage() {
   const { workspace, members, isLoadingMembers, refreshMembers } = useWorkspace()
+  const toast = useToast()
   const [email, setEmail] = useState('')
   const [inviteUrl, setInviteUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -30,53 +37,88 @@ export function MembersPage() {
     }
   }
 
+  async function copyInviteUrl() {
+    if (!inviteUrl) return
+    try {
+      await navigator.clipboard.writeText(inviteUrl)
+      toast.show('Invite link copied to clipboard.', 'success')
+    } catch {
+      toast.show('Could not copy the link. Select and copy it manually.', 'error')
+    }
+  }
+
   return (
-    <div className="dashboard">
-      <h1 className="dashboard__title">{workspace.name} · Members</h1>
+    <>
+      <PageHeader
+        title="Members"
+        description={`People with access to ${workspace.name}.`}
+      />
 
-      {isLoadingMembers ? (
-        <p className="loading-state">Loading members…</p>
-      ) : (
-        <ul className="member-list">
-          {members.map((member) => (
-            <li key={member.id} className="member-list__item">
-              <div>
-                <div>{member.user.full_name}</div>
-                <div className="member-list__email">{member.user.email}</div>
+      <div className="stack stack--lg">
+        {isLoadingMembers ? (
+          <SkeletonRows count={3} />
+        ) : (
+          <div className="row-list">
+            {members.map((member) => (
+              <div key={member.id} className="row-list__item">
+                <div className="row-list__main">
+                  <Avatar name={member.user.full_name || member.user.email} />
+                  <div className="row-list__text">
+                    <span className="row-list__title">{member.user.full_name}</span>
+                    <span className="row-list__subtitle">{member.user.email}</span>
+                  </div>
+                </div>
+                <div className="row-list__aside">
+                  <RoleBadge role={member.role} />
+                </div>
               </div>
-              <span className="badge">{member.role}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+            ))}
+          </div>
+        )}
 
-      {isOwner && (
-        <div className="onboarding__section">
-          <h2 className="onboarding__heading">Invite a member</h2>
-          {error && <div className="error-banner">{error}</div>}
-          {inviteUrl && (
-            <div className="invite-url-box">
-              Invitation created. Share this link:
-              <code>{inviteUrl}</code>
-            </div>
-          )}
-          <form className="form form--inline" onSubmit={handleInvite}>
-            <div className="form-field">
-              <label htmlFor="invite-email">Email</label>
-              <input
-                id="invite-email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <button className="btn" type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Sending…' : 'Send invite'}
-            </button>
-          </form>
-        </div>
-      )}
-    </div>
+        {isOwner && (
+          <section className="stack">
+            <h2 className="section-heading">Invite a member</h2>
+            {error && (
+              <div className="error-banner">
+                <IconAlert size={15} />
+                <span>{error}</span>
+              </div>
+            )}
+            <form className="form form--inline" onSubmit={handleInvite}>
+              <div className="form-field">
+                <label htmlFor="invite-email">Email</label>
+                <input
+                  id="invite-email"
+                  type="email"
+                  required
+                  placeholder="teammate@company.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <button className="btn" type="submit" disabled={isSubmitting}>
+                {isSubmitting && <span className="spinner" />}
+                {isSubmitting ? 'Sending…' : 'Send invite'}
+              </button>
+            </form>
+
+            {inviteUrl && (
+              <div className="copy-row">
+                <code>{inviteUrl}</code>
+                <button
+                  type="button"
+                  className="btn btn--secondary btn--sm"
+                  onClick={copyInviteUrl}
+                >
+                  <IconCopy size={14} />
+                  Copy
+                </button>
+              </div>
+            )}
+          </section>
+        )}
+      </div>
+    </>
   )
 }

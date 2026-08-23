@@ -4,6 +4,11 @@ import { Link, useNavigate } from 'react-router-dom'
 import * as workspacesApi from '../api/workspaces'
 import type { Workspace } from '../api/workspaces'
 import { ApiError } from '../api/client'
+import { PageHeader } from '../components/PageHeader'
+import { Avatar } from '../components/Avatar'
+import { RoleBadge } from '../components/Badge'
+import { SkeletonRows } from '../components/Skeleton'
+import { IconAlert, IconArrowRight } from '../components/icons'
 
 export function OnboardingPage() {
   const navigate = useNavigate()
@@ -34,46 +39,68 @@ export function OnboardingPage() {
     }
   }
 
-  if (isLoading) {
-    return <p className="loading-state">Loading…</p>
-  }
-
   return (
-    <div className="onboarding">
-      {workspaces.length > 0 && (
-        <div className="onboarding__section">
-          <h2 className="onboarding__heading">Your workspaces</h2>
-          <ul className="workspace-list">
-            {workspaces.map((workspace) => (
-              <li key={workspace.id}>
-                <Link className="workspace-list__item" to={`/workspaces/${workspace.id}`}>
-                  <span>{workspace.name}</span>
-                  <span className="badge">{workspace.role}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+    <div style={{ maxWidth: '560px' }}>
+      <PageHeader
+        title="Workspaces"
+        description="A workspace holds your projects, sprints, and teammates."
+      />
 
-      <div className="onboarding__section">
-        <h2 className="onboarding__heading">Create a workspace</h2>
-        {error && <div className="error-banner">{error}</div>}
-        <form className="form" onSubmit={handleSubmit}>
-          <div className="form-field">
-            <label htmlFor="workspace-name">Workspace name</label>
-            <input
-              id="workspace-name"
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <button className="btn" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Creating…' : 'Create workspace'}
-          </button>
-        </form>
+      <div className="stack stack--lg">
+        {isLoading ? (
+          <SkeletonRows count={2} />
+        ) : (
+          workspaces.length > 0 && (
+            <section className="stack">
+              <h2 className="section-heading">Your workspaces</h2>
+              <div className="row-list">
+                {workspaces.map((workspace) => (
+                  <Link
+                    key={workspace.id}
+                    className="row-list__item"
+                    to={`/workspaces/${workspace.id}`}
+                  >
+                    <span className="row-list__main">
+                      <Avatar name={workspace.name} />
+                      <span className="row-list__title">{workspace.name}</span>
+                    </span>
+                    <span className="row-list__aside">
+                      <RoleBadge role={workspace.role} />
+                      <IconArrowRight size={15} />
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )
+        )}
+
+        <section className="stack">
+          <h2 className="section-heading">Create a workspace</h2>
+          {error && (
+            <div className="error-banner">
+              <IconAlert size={15} />
+              <span>{error}</span>
+            </div>
+          )}
+          <form className="form form--inline" onSubmit={handleSubmit}>
+            <div className="form-field">
+              <label htmlFor="workspace-name">Workspace name</label>
+              <input
+                id="workspace-name"
+                type="text"
+                required
+                placeholder="e.g. Acme Engineering"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <button className="btn" type="submit" disabled={isSubmitting}>
+              {isSubmitting && <span className="spinner" />}
+              {isSubmitting ? 'Creating…' : 'Create workspace'}
+            </button>
+          </form>
+        </section>
       </div>
     </div>
   )

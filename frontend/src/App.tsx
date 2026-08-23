@@ -1,6 +1,8 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
+import { ToastProvider } from './context/ToastContext'
 import { AppLayout } from './components/AppLayout'
+import { AuthLayout } from './components/AuthLayout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { RedirectIfAuthenticated } from './components/RedirectIfAuthenticated'
 import { ProjectLayout } from './components/ProjectLayout'
@@ -21,28 +23,35 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          <Route element={<AppLayout />}>
+        <ToastProvider>
+          <Routes>
+            {/* Signed-out screens get the two-panel auth shell, not the app sidebar. */}
             <Route element={<RedirectIfAuthenticated />}>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-            </Route>
-            <Route element={<ProtectedRoute />}>
-              <Route path="/" element={<HomeRedirect />} />
-              <Route path="/onboarding" element={<OnboardingPage />} />
-              <Route path="/invite/:token" element={<InvitePage />} />
-              <Route path="/workspaces/:workspaceId" element={<ProjectsPage />} />
-              <Route path="/workspaces/:workspaceId/members" element={<MembersPage />} />
-              <Route path="/tasks/:taskId" element={<TaskPage />} />
-              <Route path="/projects/:projectId" element={<ProjectLayout />}>
-                <Route index element={<ProjectOverviewPage />} />
-                <Route path="sprints" element={<SprintsPage />} />
-                <Route path="sprints/:sprintId" element={<SprintDetailPage />} />
-                <Route path="board" element={<ProjectBoardPage />} />
+              <Route element={<AuthLayout />}>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
               </Route>
             </Route>
-          </Route>
-        </Routes>
+
+            <Route element={<ProtectedRoute />}>
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<HomeRedirect />} />
+                <Route path="/onboarding" element={<OnboardingPage />} />
+                <Route path="/invite/:token" element={<InvitePage />} />
+                <Route path="/workspaces/:workspaceId" element={<ProjectsPage />} />
+                <Route path="/workspaces/:workspaceId/members" element={<MembersPage />} />
+                <Route path="/tasks/:taskId" element={<TaskPage />} />
+                <Route path="/projects/:projectId" element={<ProjectLayout />}>
+                  <Route index element={<Navigate to="board" replace />} />
+                  <Route path="overview" element={<ProjectOverviewPage />} />
+                  <Route path="sprints" element={<SprintsPage />} />
+                  <Route path="sprints/:sprintId" element={<SprintDetailPage />} />
+                  <Route path="board" element={<ProjectBoardPage />} />
+                </Route>
+              </Route>
+            </Route>
+          </Routes>
+        </ToastProvider>
       </AuthProvider>
     </BrowserRouter>
   )

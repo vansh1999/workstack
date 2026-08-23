@@ -5,6 +5,12 @@ import { useWorkspace } from '../context/WorkspaceContext'
 import * as projectsApi from '../api/projects'
 import type { Project } from '../api/projects'
 import { ApiError } from '../api/client'
+import { PageHeader } from '../components/PageHeader'
+import { EmptyState } from '../components/EmptyState'
+import { SkeletonCards } from '../components/Skeleton'
+import { Modal } from '../components/Modal'
+import { Avatar } from '../components/Avatar'
+import { IconAlert, IconArrowRight, IconLayers, IconPlus } from '../components/icons'
 
 function formatDate(isoDate: string): string {
   return new Date(isoDate).toLocaleDateString(undefined, {
@@ -57,91 +63,116 @@ export function ProjectsPage() {
     }
   }
 
-  return (
-    <div className="projects">
-      <div className="projects__header">
-        <h1 className="dashboard__title">Projects</h1>
-        {isOwner && !isFormOpen && (
-          <button className="btn" onClick={openForm}>
-            New project
-          </button>
-        )}
-      </div>
+  const newProjectButton = isOwner ? (
+    <button className="btn" onClick={openForm}>
+      <IconPlus size={15} />
+      New project
+    </button>
+  ) : null
 
-      {isFormOpen && (
-        <form className="form project-form" onSubmit={handleSubmit}>
-          {error && <div className="error-banner">{error}</div>}
-          <div className="form-field">
-            <label htmlFor="project-name">Name</label>
-            <input
-              id="project-name"
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="project-key">Key</label>
-            <input
-              id="project-key"
-              type="text"
-              required
-              maxLength={10}
-              placeholder="e.g. PAY"
-              value={key}
-              onChange={(e) => setKey(e.target.value.toUpperCase())}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="project-description">Description</label>
-            <textarea
-              id="project-description"
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
-          <div className="project-form__actions">
-            <button
-              type="button"
-              className="btn btn--secondary"
-              onClick={() => setIsFormOpen(false)}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </button>
-            <button className="btn" type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Creating…' : 'Create project'}
-            </button>
-          </div>
-        </form>
-      )}
+  return (
+    <>
+      <PageHeader
+        title="Projects"
+        description={`Everything being built in ${workspace.name}.`}
+        actions={newProjectButton}
+      />
 
       {isLoading ? (
-        <p className="loading-state">Loading projects…</p>
+        <SkeletonCards />
       ) : projects.length === 0 ? (
-        <p className="loading-state">
-          {isOwner
-            ? 'No projects yet. Create the first one to get started.'
-            : 'No projects yet.'}
-        </p>
+        <EmptyState
+          icon={<IconLayers size={20} />}
+          title="No projects yet."
+          body={
+            isOwner
+              ? 'Use New project above to start planning sprints and tracking work.'
+              : 'An owner of this workspace needs to create one first.'
+          }
+        />
       ) : (
         <div className="project-grid">
           {projects.map((project) => (
             <Link key={project.id} className="project-card" to={`/projects/${project.id}`}>
               <div className="project-card__header">
-                <h2 className="project-card__title">{project.name}</h2>
-                <span className="badge">{project.key}</span>
+                <div className="row-list__main">
+                  <Avatar name={project.name} label={project.key.slice(0, 2)} />
+                  <h2 className="project-card__title">{project.name}</h2>
+                </div>
+                <span className="key-chip">{project.key}</span>
               </div>
               {project.description && (
                 <p className="project-card__description">{project.description}</p>
               )}
-              <p className="project-card__meta">Created {formatDate(project.created_at)}</p>
+              <p className="project-card__meta">
+                <span>Created {formatDate(project.created_at)}</span>
+                <IconArrowRight size={15} className="project-card__arrow" />
+              </p>
             </Link>
           ))}
         </div>
       )}
-    </div>
+
+      {isFormOpen && (
+        <Modal title="New project" onClose={() => setIsFormOpen(false)}>
+          <form className="form" onSubmit={handleSubmit}>
+            {error && (
+              <div className="error-banner">
+                <IconAlert size={15} />
+                <span>{error}</span>
+              </div>
+            )}
+            <div className="form-field">
+              <label htmlFor="project-name">Name</label>
+              <input
+                id="project-name"
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <div className="form-field">
+              <label htmlFor="project-key">Key</label>
+              <input
+                id="project-key"
+                type="text"
+                required
+                maxLength={10}
+                placeholder="e.g. PAY"
+                value={key}
+                onChange={(e) => setKey(e.target.value.toUpperCase())}
+              />
+              <span className="form-field__hint">
+                Used to prefix every task in this project, like PAY-12.
+              </span>
+            </div>
+            <div className="form-field">
+              <label htmlFor="project-description">Description</label>
+              <textarea
+                id="project-description"
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+            <div className="form-actions">
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={() => setIsFormOpen(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </button>
+              <button className="btn" type="submit" disabled={isSubmitting}>
+                {isSubmitting && <span className="spinner" />}
+                {isSubmitting ? 'Creating…' : 'Create project'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </>
   )
 }

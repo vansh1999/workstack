@@ -4,6 +4,7 @@ import * as workspacesApi from '../api/workspaces'
 import type { InvitationPublic } from '../api/workspaces'
 import { ApiError } from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import { Avatar } from '../components/Avatar'
 
 export function InvitePage() {
   const { token } = useParams<{ token: string }>()
@@ -53,6 +54,7 @@ export function InvitePage() {
   return (
     <div className="auth-card">
       <div className="auth-card__header">
+        <Avatar name={invitation.workspace_name} size="lg" />
         <h1 className="auth-card__title">You&apos;ve been invited to {invitation.workspace_name}</h1>
         <p className="auth-card__subtitle">Invited email: {invitation.email}</p>
       </div>

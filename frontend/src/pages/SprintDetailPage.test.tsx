@@ -6,9 +6,35 @@ import { SprintDetailPage } from './SprintDetailPage'
 import { ProjectContext } from '../context/ProjectContext'
 import * as sprintsApi from '../api/sprints'
 import type { Sprint } from '../api/sprints'
+import * as tasksApi from '../api/tasks'
+import type { Task } from '../api/tasks'
 import type { WorkspaceRole } from '../api/workspaces'
 
 vi.mock('../api/sprints')
+vi.mock('../api/tasks')
+
+const SPRINT_TASK: Task = {
+  id: 't1',
+  project_id: 'p1',
+  project_name: 'Payment Platform',
+  workspace_id: 'w1',
+  sprint_id: 's1',
+  sprint_name: 'Sprint 1',
+  key: 'PAY-4',
+  title: 'Wire up the retry job',
+  description: null,
+  status: 'IN_PROGRESS',
+  priority: 'HIGH',
+  assignee: null,
+  reporter: { id: 'u1', email: 'owner@example.com', full_name: 'Owner', created_at: 'now' },
+  role: 'OWNER',
+  created_at: 'now',
+  updated_at: 'now',
+}
+
+beforeEach(() => {
+  vi.mocked(tasksApi.listTasks).mockResolvedValue([])
+})
 
 const BASE_SPRINT: Sprint = {
   id: 's1',
@@ -59,6 +85,18 @@ describe('SprintDetailPage', () => {
     expect(screen.getByText('Complete authentication')).toBeInTheDocument()
     expect(screen.getByText('PLANNED')).toBeInTheDocument()
     expect(screen.getByText('No tasks in this sprint yet.')).toBeInTheDocument()
+  })
+
+  it('lists the tasks that belong to the sprint', async () => {
+    vi.mocked(sprintsApi.getSprint).mockResolvedValue(BASE_SPRINT)
+    vi.mocked(tasksApi.listTasks).mockResolvedValue([SPRINT_TASK])
+
+    renderSprintDetail('OWNER')
+
+    expect(await screen.findByText('Wire up the retry job')).toBeInTheDocument()
+    expect(screen.getByText('PAY-4')).toBeInTheDocument()
+    expect(screen.queryByText('No tasks in this sprint yet.')).not.toBeInTheDocument()
+    expect(tasksApi.listTasks).toHaveBeenCalledWith('p1', { sprintId: 's1' })
   })
 
   it('shows Edit and Start Sprint for a PLANNED sprint, owner only', async () => {
