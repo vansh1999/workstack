@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: workstack
+data:
+  JWT_ALGORITHM: "HS256"
+  ACCESS_TOKEN_EXPIRE_MINUTES: "10080"
+  # Reserved global static IP (terraform output ingress_static_ip) fronting
+  # the GCE Ingress. Plain HTTP for now — TLS/custom domain is Stage 9.
+  CORS_ORIGINS: "http://34.49.71.24"
+  COOKIE_NAME: "access_token"
+  # Flips to "true" once TLS lands (Stage 9) — plain HTTP today.
+  COOKIE_SECURE: "false"
+  FRONTEND_BASE_URL: "http://34.49.71.24"
+  INVITATION_EXPIRE_HOURS: "168"

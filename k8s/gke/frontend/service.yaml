@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: workstack
+  annotations:
+    # Container-native load balancing: the GCE Ingress talks directly to pod
+    # IPs via a Network Endpoint Group instead of NodePort+kube-proxy hairpin.
+    cloud.google.com/neg: '{"ingress": true}'
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 8080
+      targetPort: 8080

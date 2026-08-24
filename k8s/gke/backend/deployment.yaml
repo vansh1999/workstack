@@ -1,0 +1,122 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: workstack
+spec:
+  # Starts at 1 replica deliberately: docker-entrypoint.sh runs
+  # `alembic upgrade head` unconditionally on every container start with no
+  # locking. Multiple replicas racing to migrate a fresh, empty database
+  # could conflict on DDL. At replicas: 1 that race is structurally
+  # impossible on first boot; HPA only scales up afterward, once the schema
+  # is already at head, so later replicas' migration runs are safe no-ops.
+  # Identical reasoning to k8s/kind/backend/deployment.yaml — carries over
+  # unchanged to GKE/Cloud SQL.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      serviceAccountName: workstack-backend
+      # Native sidecar (restartPolicy: Always under initContainers): starts
+      # and passes its own startupProbe BEFORE the main container is
+      # created. This structurally eliminates the race between
+      # `alembic upgrade head` (runs immediately on backend container start)
+      # and the proxy not yet listening on 127.0.0.1:5432.
+      initContainers:
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.2
+          restartPolicy: Always
+          args:
+            - --private-ip
+            - --port=5432
+            - --structured-logs
+            - --health-check
+            - --http-address=0.0.0.0
+            - --http-port=9801
+            - workstack-devops-vb:us-central1:workstack-dev-pg
+          securityContext:
+            runAsNonRoot: true
+          startupProbe:
+            httpGet:
+              path: /startup
+              port: 9801
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /readiness
+              port: 9801
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /liveness
+              port: 9801
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+      containers:
+        - name: backend
+          image: us-central1-docker.pkg.dev/workstack-devops-vb/workstack/workstack-backend:v0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: backend-secret
+          volumeMounts:
+            # Not read by the app directly — the mount itself is what
+            # triggers the SecretProviderClass's secretObjects sync into the
+            # backend-secret Kubernetes Secret consumed via envFrom above.
+            - name: secrets-store
+              mountPath: /mnt/secrets
+              readOnly: true
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 300Mi
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store-gke.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: backend-secret-provider

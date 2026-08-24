@@ -19,3 +19,8 @@ output "subnet_name" {
 output "subnet_self_link" {
   value = google_compute_subnetwork.subnet.self_link
 }
+
+output "psa_connection" {
+  description = "The google_service_networking_connection resource, for other modules to depend_on before creating private-IP resources (e.g. Cloud SQL)."
+  value       = var.enable_private_service_access ? google_service_networking_connection.psa[0] : null
+}

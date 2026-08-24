@@ -9,3 +9,9 @@ variable "region" {
   type        = string
   default     = "us-central1"
 }
+
+variable "zone" {
+  description = "Zone for the zonal GKE cluster."
+  type        = string
+  default     = "us-central1-a"
+}

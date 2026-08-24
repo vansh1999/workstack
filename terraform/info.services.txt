@@ -1,0 +1,36 @@
+console for workstack-devops-vb, based on what your Terraform actually provisions:
+
+Kubernetes Engine → workstack-dev-gke cluster
+- Cluster overview: nodes, VPC-native networking, Workload Identity enabled
+- Node pool: workstack-dev-pool — check machine type, autoscaling min/max, spot instances
+- Workloads/Storage tabs once you deploy the app
+
+VPC network
+- workstack-dev-vpc — the network itself
+- Subnets → workstack-dev-subnet (check secondary ranges for pods/services)
+- VPC Network Peering → the Private Service Access peering to servicenetworking.googleapis.com (needed for Cloud SQL private IP)
+- Firewall rules → workstack-dev-allow-internal
+- IP addresses → two reserved static IPs: workstack-dev-ingress-ip (external, for the GKE Ingress) and the PSA range (internal)
+
+SQL → workstack-dev-pg instance
+- Postgres 16, zonal (no HA yet), private IP only — confirm no public IP is shown
+- Databases tab → your app DB
+- Users tab → app DB user
+- Backups tab → daily backups at 03:00, 3 retained
+
+Artifact Registry → workstack repository (Docker format, in your region) — empty until Stage 6 CI pushes images
+
+Secret Manager → three secrets:
+- workstack-dev-database-url
+- workstack-dev-app-secret-key
+- workstack-dev-db-password
+
+IAM & Admin → Service Accounts
+- workstack-dev-gke-node — node pool identity (logging/monitoring roles only)
+- workstack-dev-backend — Workload Identity SA bound to the backend's Kubernetes SA, granted Secret Manager access + roles/cloudsql.client
+
+IAM & Admin → IAM — you can also view all role bindings here filtered by those two service accounts
+
+Cloud Storage → workstack-devops-vb-tfstate bucket (created by your bootstrap config, holds remote Terraform state — versioned, uniform bucket-level access)
+
+APIs & Services → Enabled APIs — should show compute, container, artifactregistry, sqladmin, secretmanager, servicenetworking, iamcredentials all enabled

@@ -66,3 +66,17 @@ Checks performed and what they proved
 - kubectl get pdb -n workstack → backend (1 replica, minAvailable: 1) shows ALLOWED DISRUPTIONS: 0; frontend (2 replicas, minAvailable: 1) shows ALLOWED DISRUPTIONS: 1 — confirms the PDBs are enforcing exactly what they're meant to: you can't voluntarily evict the only backend pod, but you can drain one of the two frontend pods.
 
 Not run yet (optional, left for hands-on exploration): a full kind delete cluster --name workstack + reapply to prove reproducibility from scratch, and a synthetic load-generator against backend:8000/health to watch the HPA actually scale replicas up and back down.
+
+
+
+You have two things running: the Docker Compose app stack, and a kind cluster (workstack-control-plane node). Here's how to stop each without losing data:
+
+Docker Compose app (stops containers, keeps DB volume):
+$ docker compose stop
+
+kind cluster (stops the node container, keeps cluster/PVC state — it's just a paused Docker container):
+$ docker stop workstack-control-plane
+
+To bring both back later:
+$ docker compose start
+$ docker start workstack-control-plane
