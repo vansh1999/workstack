@@ -81,6 +81,14 @@ resource "google_container_cluster" "primary" {
     enabled = true
   }
 
+  # Classic GKE Ingress (ingress-gce) is in maintenance mode and did not
+  # provision a load balancer on this cluster after 30+ minutes with no
+  # errors (empirically confirmed). Gateway API is Google's actively
+  # maintained replacement for external HTTP(S) load balancing on GKE.
+  gateway_api_config {
+    channel = "CHANNEL_STANDARD"
+  }
+
   # Dataplane V2 (Cilium). Create-time-only setting: enabling it now (free,
   # enforces nothing by itself) avoids a full cluster recreation when Stage 9
   # introduces NetworkPolicy.

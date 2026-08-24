@@ -1,0 +1,26 @@
+### why ? -> Gateway API is the modern, officially recommended standard for managing external and internal traffic, while GKE Ingress is the legacy standard currently placed in maintenance mode
+
+# Replaces ingress.yaml/ingressclass.yaml: classic GKE Ingress (ingress-gce)
+# is in maintenance mode and never provisioned a load balancer on this
+# cluster despite a valid IngressClass, static IP, and healthy backends.
+# Gateway API is GKE's actively maintained replacement.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: workstack
+  namespace: workstack
+spec:
+  gatewayClassName: gke-l7-global-external-managed
+  # Reuses the same reserved global static IP Terraform already created
+  # (module.gke.google_compute_global_address.ingress_ip) — no new address,
+  # no ConfigMap churn.
+  addresses:
+    - type: NamedAddress
+      value: workstack-dev-ingress-ip
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Same

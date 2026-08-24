@@ -33,3 +33,6 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 *.tfplan
+
+info.services.txt
+stage-4-info.txt
