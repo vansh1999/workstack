@@ -1,0 +1,6 @@
+apiVersion: v2
+name: workstack
+description: Work Stack (React + FastAPI + Postgres) application chart — renders either the kind or GKE deployment via values-kind.yaml / values-gke.yaml
+type: application
+version: 0.1.0
+appVersion: "v0.1.0"

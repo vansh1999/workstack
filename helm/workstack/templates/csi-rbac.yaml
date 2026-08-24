@@ -1,0 +1,33 @@
+{{- if .Values.secretProvider.enabled }}
+# GKE's managed Secret Manager CSI add-on does not itself provision the
+# RBAC its own driver needs to perform the SecretProviderClass
+# `secretObjects` sync-to-Kubernetes-Secret feature. Without this grant,
+# the driver's ServiceAccount (kube-system/secrets-store-csi-driver-gke)
+# fails to list/watch Secrets at cluster scope and backend-secret never
+# gets created.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: secrets-store-csi-driver-gke-secrets-sync
+  labels:
+    {{- include "workstack.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: secrets-store-csi-driver-gke-secrets-sync
+  labels:
+    {{- include "workstack.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: secrets-store-csi-driver-gke-secrets-sync
+subjects:
+  - kind: ServiceAccount
+    name: secrets-store-csi-driver-gke
+    namespace: kube-system
+{{- end }}

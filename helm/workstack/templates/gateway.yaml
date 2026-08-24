@@ -1,0 +1,27 @@
+{{- if .Values.gateway.enabled }}
+# Gateway API — GKE's actively maintained replacement for classic Ingress
+# (ingress-gce is in maintenance mode and never provisioned a load balancer
+# on this cluster despite a valid IngressClass, static IP, and healthy
+# backends).
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: workstack
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "workstack.labels" . | nindent 4 }}
+spec:
+  gatewayClassName: {{ .Values.gateway.className }}
+  # Reuses the reserved global static IP Terraform already created — no new
+  # address, no ConfigMap changes needed.
+  addresses:
+    - type: NamedAddress
+      value: {{ .Values.gateway.staticIPName }}
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Same
+{{- end }}

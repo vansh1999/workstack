@@ -1,0 +1,120 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "workstack.labels" . | nindent 4 }}
+spec:
+  # Starts at 1 replica deliberately: docker-entrypoint.sh runs
+  # `alembic upgrade head` unconditionally on every container start with no
+  # locking. Multiple replicas racing to migrate a fresh, empty database
+  # could conflict on DDL. At replicas: 1 that race is structurally
+  # impossible on first boot; HPA only scales up afterward, once the schema
+  # is already at head, so later replicas' migration runs are safe no-ops.
+  replicas: {{ .Values.backend.replicas }}
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- end }}
+      {{- if .Values.cloudSqlProxy.enabled }}
+      # Native sidecar (restartPolicy: Always under initContainers): starts
+      # and passes its own startupProbe BEFORE the main container is
+      # created. This structurally eliminates the race between
+      # `alembic upgrade head` (runs immediately on backend container start)
+      # and the proxy not yet listening on 127.0.0.1:5432.
+      initContainers:
+        - name: cloud-sql-proxy
+          image: {{ .Values.cloudSqlProxy.image }}
+          restartPolicy: Always
+          args:
+            - --private-ip
+            - --port=5432
+            - --structured-logs
+            - --health-check
+            - --http-address=0.0.0.0
+            - --http-port=9801
+            - {{ .Values.cloudSqlProxy.instanceConnectionName }}
+          securityContext:
+            runAsNonRoot: true
+          startupProbe:
+            httpGet:
+              path: /startup
+              port: 9801
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /readiness
+              port: 9801
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /liveness
+              port: 9801
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.cloudSqlProxy.resources | nindent 12 }}
+      {{- end }}
+      containers:
+        - name: backend
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: backend-secret
+          {{- if .Values.secretProvider.enabled }}
+          volumeMounts:
+            # Not read by the app directly — the mount itself is what
+            # triggers the SecretProviderClass's secretObjects sync into the
+            # backend-secret Kubernetes Secret consumed via envFrom above.
+            - name: secrets-store
+              mountPath: /mnt/secrets
+              readOnly: true
+          {{- end }}
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+      {{- if .Values.secretProvider.enabled }}
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store-gke.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ .Values.secretProvider.name }}
+      {{- end }}

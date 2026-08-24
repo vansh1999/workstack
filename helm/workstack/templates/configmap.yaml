@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "workstack.labels" . | nindent 4 }}
+data:
+  JWT_ALGORITHM: {{ .Values.config.jwtAlgorithm | quote }}
+  ACCESS_TOKEN_EXPIRE_MINUTES: {{ .Values.config.accessTokenExpireMinutes | quote }}
+  CORS_ORIGINS: {{ .Values.config.corsOrigins | quote }}
+  COOKIE_NAME: {{ .Values.config.cookieName | quote }}
+  COOKIE_SECURE: {{ .Values.config.cookieSecure | quote }}
+  FRONTEND_BASE_URL: {{ .Values.config.frontendBaseUrl | quote }}
+  INVITATION_EXPIRE_HOURS: {{ .Values.config.invitationExpireHours | quote }}

@@ -1,0 +1,21 @@
+# Local kind cluster overrides. Images are loaded directly into the kind
+# node (no registry) — see helm/workstack/README.md for the build/tag/load
+# workflow. Never "latest": kind uses the same explicit v0.1.0 tag as GKE.
+frontend:
+  image:
+    repository: workstack-frontend
+    tag: v0.1.0
+backend:
+  image:
+    repository: workstack-backend
+    tag: v0.1.0
+
+postgres:
+  enabled: true
+
+secret:
+  create: true
+
+ingress:
+  enabled: true
+  className: nginx

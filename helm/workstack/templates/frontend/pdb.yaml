@@ -1,0 +1,14 @@
+{{- if .Values.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: frontend
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "workstack.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.pdb.frontendMinAvailable }}
+  selector:
+    matchLabels:
+      app: frontend
+{{- end }}

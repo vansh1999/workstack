@@ -1,0 +1,51 @@
+# GKE (dev) overrides. Every GCP-side name/connection-string below is a
+# reference to infrastructure Terraform already created — this chart never
+# creates the static IP, Cloud SQL instance, Secret Manager secrets, or the
+# Workload Identity GCP service account binding.
+frontend:
+  image:
+    repository: us-central1-docker.pkg.dev/workstack-devops-vb/workstack/workstack-frontend
+    tag: v0.1.0
+  antiAffinity: true
+  service:
+    annotations:
+      # Container-native load balancing: the Gateway talks directly to pod
+      # IPs via a Network Endpoint Group instead of NodePort+kube-proxy.
+      cloud.google.com/neg: '{"ingress": true}'
+
+backend:
+  image:
+    repository: us-central1-docker.pkg.dev/workstack-devops-vb/workstack/workstack-backend
+    tag: v0.1.0
+
+config:
+  # Reserved global static IP (terraform output ingress_static_ip) fronting
+  # the Gateway. Plain HTTP for now — TLS/custom domain is Stage 9.
+  corsOrigins: "http://34.49.71.24"
+  frontendBaseUrl: "http://34.49.71.24"
+  cookieSecure: "false"
+
+serviceAccount:
+  create: true
+  name: workstack-backend
+  annotations:
+    iam.gke.io/gcp-service-account: workstack-dev-backend@workstack-devops-vb.iam.gserviceaccount.com
+
+secretProvider:
+  enabled: true
+  secrets:
+    - resourceName: projects/workstack-devops-vb/secrets/workstack-dev-database-url/versions/latest
+      path: DATABASE_URL
+    - resourceName: projects/workstack-devops-vb/secrets/workstack-dev-app-secret-key/versions/latest
+      path: SECRET_KEY
+
+cloudSqlProxy:
+  enabled: true
+  image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.2
+  instanceConnectionName: "workstack-devops-vb:us-central1:workstack-dev-pg"
+
+gateway:
+  enabled: true
+  staticIPName: workstack-dev-ingress-ip
+httpRoute:
+  enabled: true

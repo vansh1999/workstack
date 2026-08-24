@@ -1,0 +1,130 @@
+# Neutral defaults. Environment-specific behavior is layered on top via
+# values-kind.yaml / values-gke.yaml — see each file's own comments.
+
+# Namespace all resources are created in.
+namespace: workstack
+# Whether this chart creates/owns the Namespace object itself. True in both
+# kind and GKE. On GKE the namespace already exists from the pre-Helm
+# kubectl apply and must be adopted (annotated/labeled for Helm ownership)
+# before the first `helm upgrade --install` — after that this is a no-op.
+namespaceCreate: true
+
+frontend:
+  image:
+    repository: workstack-frontend
+    tag: v0.1.0
+  replicas: 2
+  # Soft anti-affinity spreading replicas across nodes — meaningful on GKE's
+  # multi-node pool, moot on kind's single-node cluster.
+  antiAffinity: false
+  resources:
+    requests: {cpu: 50m, memory: 32Mi}
+    limits: {cpu: 200m, memory: 64Mi}
+  service:
+    # Extra Service annotations, e.g. GKE's NEG annotation for container-
+    # native load balancing. Empty by default.
+    annotations: {}
+
+backend:
+  image:
+    repository: workstack-backend
+    tag: v0.1.0
+  # Deliberately 1 — docker-entrypoint.sh runs `alembic upgrade head`
+  # unconditionally on every container start with no locking. Multiple
+  # replicas racing to migrate a fresh, empty database could conflict on
+  # DDL. At replicas: 1 that race is structurally impossible on first boot;
+  # HPA only scales up afterward, once the schema is already at head, so
+  # later replicas' migration runs are safe no-ops.
+  replicas: 1
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 300Mi}
+
+# Non-secret backend env vars -> ConfigMap/backend-config.
+config:
+  jwtAlgorithm: HS256
+  accessTokenExpireMinutes: "10080"
+  corsOrigins: "http://localhost"
+  cookieName: access_token
+  cookieSecure: "false"
+  frontendBaseUrl: "http://localhost"
+  invitationExpireHours: "168"
+
+hpa:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
+
+pdb:
+  enabled: true
+  backendMinAvailable: 1
+  frontendMinAvailable: 1
+
+# GKE Workload Identity ServiceAccount for the backend Pod. Disabled by
+# default — kind has no GCP identity to bind.
+serviceAccount:
+  create: false
+  name: ""
+  annotations: {}
+
+# GKE Secret Manager CSI integration: SecretProviderClass + the
+# ClusterRole/ClusterRoleBinding its secretObjects sync feature needs.
+# Disabled by default — kind uses a plain Secret instead (see `secret` below).
+secretProvider:
+  enabled: false
+  name: backend-secret-provider
+  secrets: []
+  # e.g.:
+  # - resourceName: projects/PROJECT/secrets/NAME/versions/latest
+  #   path: DATABASE_URL
+
+# Cloud SQL Auth Proxy native sidecar — GKE only. Disabled by default.
+cloudSqlProxy:
+  enabled: false
+  image: ""
+  instanceConnectionName: ""
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 200m, memory: 128Mi}
+
+# In-cluster Postgres — kind only. GKE uses Cloud SQL (Terraform-owned,
+# reached via cloudSqlProxy above), so this stays disabled there.
+postgres:
+  enabled: false
+  serviceName: postgres
+  user: workstack
+  password: workstack
+  database: workstack
+  image: postgres:16-alpine
+  storage:
+    size: 1Gi
+    className: standard
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+
+# Plaintext dev Secret (backend-secret) — kind only. On GKE, backend-secret
+# is instead created by the SecretProviderClass's secretObjects sync, so
+# this must stay disabled there (never both at once).
+secret:
+  create: false
+  # DATABASE_URL is derived from postgres.* above, not duplicated here.
+  secretKey: "changeme-generate-a-real-secret-key"
+
+# Classic nginx Ingress — kind only. GKE uses Gateway API instead (below).
+ingress:
+  enabled: false
+  className: nginx
+
+# Gateway API — GKE only. Replaces the classic Ingress, which never
+# provisioned a load balancer on this GKE cluster/version (ingress-gce is in
+# maintenance mode).
+gateway:
+  enabled: false
+  className: gke-l7-global-external-managed
+  # Name of the Terraform-created reserved global static IP address.
+  # Referenced, never created, by this chart.
+  staticIPName: ""
+httpRoute:
+  enabled: false
