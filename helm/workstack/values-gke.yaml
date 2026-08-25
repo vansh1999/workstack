@@ -5,7 +5,7 @@
 frontend:
   image:
     repository: us-central1-docker.pkg.dev/workstack-devops-vb/workstack/workstack-frontend
-    tag: v0.1.0
+    # tag intentionally omitted — supplied by workstack-gitops/environments/gke/image-tags.yaml
   antiAffinity: true
   service:
     annotations:
@@ -16,7 +16,7 @@ frontend:
 backend:
   image:
     repository: us-central1-docker.pkg.dev/workstack-devops-vb/workstack/workstack-backend
-    tag: v0.1.0
+    # tag intentionally omitted — supplied by workstack-gitops/environments/gke/image-tags.yaml
 
 config:
   # Reserved global static IP (terraform output ingress_static_ip) fronting

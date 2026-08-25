@@ -70,3 +70,31 @@ jobs:
 
       - name: Push image
         run: docker push "${IMAGE_REF}"
+
+  update-gitops:
+    name: Update GitOps repo image tags
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout GitOps repo
+        uses: actions/checkout@v4
+        with:
+          repository: vansh1999/workstack-gitops
+          token: ${{ secrets.GITOPS_PAT }}
+
+      # yq (mikefarah) ships preinstalled on GitHub's ubuntu-latest runners.
+      - name: Bump image tags to this commit's SHA
+        run: |
+          yq -i '.backend.image.tag = "${{ github.sha }}"' environments/gke/image-tags.yaml
+          yq -i '.frontend.image.tag = "${{ github.sha }}"' environments/gke/image-tags.yaml
+
+      # CI's responsibility ends here — this commits state to a repo Argo CD
+      # watches. No kubectl/helm invocation and no GCP/Kubernetes credential
+      # of any kind exists in this job, keeping "CI must not deploy to GKE"
+      # true by construction, not just by convention.
+      - name: Commit and push
+        run: |
+          git config user.name "workstack-ci"
+          git config user.email "ci@workstack.dev"
+          git commit -am "Deploy ${{ github.sha }}" || exit 0
+          git push
