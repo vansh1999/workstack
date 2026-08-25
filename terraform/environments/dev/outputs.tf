@@ -57,3 +57,11 @@ output "cloudsql_private_ip" {
 output "secret_resource_paths" {
   value = module.secrets.secret_resource_paths
 }
+
+output "ci_service_account_email" {
+  value = module.github_actions_ci.ci_service_account_email
+}
+
+output "workload_identity_provider_resource_name" {
+  value = module.github_actions_ci.workload_identity_provider_resource_name
+}
