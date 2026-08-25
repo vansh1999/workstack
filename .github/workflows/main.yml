@@ -43,24 +43,20 @@ jobs:
           load: true
           tags: ${{ env.IMAGE_REF }}
 
+      # Table output straight to the job log — SARIF/Security-tab upload
+      # needs GitHub Advanced Security, which is a paid add-on on a private
+      # repo, so this stays log-only for this project.
       - name: Scan image with Trivy
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.IMAGE_REF }}
-          format: sarif
-          output: trivy-results-${{ matrix.image }}.sarif
+          format: table
           severity: CRITICAL,HIGH
           # Report-only for now: base-image CVEs (python:3.11-slim,
           # node:20-alpine) aren't yet on a patching cadence, and a hard
           # fail here would block every merge to main on day one. Flip to
           # "1" once there's a triage process.
           exit-code: "0"
-
-      - name: Upload Trivy results to code scanning
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-results-${{ matrix.image }}.sarif
-          category: trivy-${{ matrix.image }}
 
       - id: auth
         uses: google-github-actions/auth@v2
