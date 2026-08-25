@@ -4,7 +4,7 @@ import { IconCheck } from './icons'
 const FEATURES = [
   'Projects and team workspaces',
   'Sprints with a clear lifecycle',
-  'Simple drag-and-drop boards',
+  'Simple drag-and-drop tasks',
 ]
 
 /**
