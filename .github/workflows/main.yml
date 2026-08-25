@@ -1,0 +1,76 @@
+name: Main
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    uses: ./.github/workflows/_validate.yml
+
+  build-and-push:
+    name: Build, scan, and push (${{ matrix.image }})
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      matrix:
+        include:
+          - image: backend
+            context: backend
+            repo: workstack-backend
+          - image: frontend
+            context: frontend
+            repo: workstack-frontend
+    env:
+      IMAGE_REF: us-central1-docker.pkg.dev/workstack-devops-vb/workstack/${{ matrix.repo }}:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Build first, scan next, push last — a Trivy finding never results in
+      # a bad image landing in the registry, even under the report-only
+      # policy below.
+      - name: Build image (local only)
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: ${{ env.IMAGE_REF }}
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.IMAGE_REF }}
+          format: sarif
+          output: trivy-results-${{ matrix.image }}.sarif
+          severity: CRITICAL,HIGH
+          # Report-only for now: base-image CVEs (python:3.11-slim,
+          # node:20-alpine) aren't yet on a patching cadence, and a hard
+          # fail here would block every merge to main on day one. Flip to
+          # "1" once there's a triage process.
+          exit-code: "0"
+
+      - name: Upload Trivy results to code scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results-${{ matrix.image }}.sarif
+          category: trivy-${{ matrix.image }}
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/183726293034/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider
+          service_account: workstack-ci@workstack-devops-vb.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      - name: Push image
+        run: docker push "${IMAGE_REF}"

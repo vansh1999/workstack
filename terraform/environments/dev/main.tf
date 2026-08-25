@@ -31,6 +31,7 @@ resource "google_project_service" "dev" {
     "secretmanager.googleapis.com",
     "servicenetworking.googleapis.com",
     "iamcredentials.googleapis.com",
+    "sts.googleapis.com",
   ])
 
   project = var.project_id
@@ -72,6 +73,15 @@ module "gke" {
   depends_on = [module.network, google_project_service.dev]
 }
 
+module "github_actions_ci" {
+  source = "../../modules/github-actions-ci"
+
+  project_id        = var.project_id
+  github_repository = "vansh1999/workstack"
+
+  depends_on = [google_project_service.dev]
+}
+
 module "artifact_registry" {
   source = "../../modules/artifact-registry"
 
@@ -83,9 +93,12 @@ module "artifact_registry" {
     "roles/artifactregistry.reader" = [
       "serviceAccount:${module.gke.node_service_account_email}",
     ]
+    "roles/artifactregistry.writer" = [
+      "serviceAccount:${module.github_actions_ci.ci_service_account_email}",
+    ]
   }
 
-  depends_on = [google_project_service.dev, module.gke]
+  depends_on = [google_project_service.dev, module.gke, module.github_actions_ci]
 }
 
 module "cloudsql" {
