@@ -9,6 +9,7 @@ email-validator==2.3.0
 bcrypt==5.0.0
 pyjwt==2.13.0
 python-dotenv==1.2.2
+prometheus-fastapi-instrumentator==8.1.0
 
 # test dependencies
 pytest==9.1.1

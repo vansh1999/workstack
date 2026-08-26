@@ -49,3 +49,7 @@ gateway:
   staticIPName: workstack-dev-ingress-ip
 httpRoute:
   enabled: true
+
+# Prometheus Operator CRDs exist on GKE (Stage 8's kube-prometheus-stack).
+serviceMonitor:
+  enabled: true

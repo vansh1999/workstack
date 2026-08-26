@@ -65,3 +65,12 @@ output "ci_service_account_email" {
 output "workload_identity_provider_resource_name" {
   value = module.github_actions_ci.workload_identity_provider_resource_name
 }
+
+output "observability_namespace" {
+  value = module.observability.namespace
+}
+
+output "grafana_admin_password" {
+  value     = module.observability.grafana_admin_password
+  sensitive = true
+}

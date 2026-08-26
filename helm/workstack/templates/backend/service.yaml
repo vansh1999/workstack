@@ -4,10 +4,12 @@ metadata:
   name: backend
   namespace: {{ .Values.namespace }}
   labels:
+    app: backend
     {{- include "workstack.labels" . | nindent 4 }}
 spec:
   selector:
     app: backend
   ports:
-    - port: 8000
+    - name: http
+      port: 8000
       targetPort: 8000

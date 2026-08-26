@@ -128,3 +128,10 @@ gateway:
   staticIPName: ""
 httpRoute:
   enabled: false
+
+# ServiceMonitor for the backend's /metrics endpoint — requires the
+# Prometheus Operator CRDs (installed by Stage 8's kube-prometheus-stack).
+# Off by default: kind has no CRDs for this unless the observability stack
+# is separately installed there too.
+serviceMonitor:
+  enabled: false

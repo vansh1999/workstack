@@ -14,12 +14,39 @@ terraform {
       source  = "hashicorp/time"
       version = "~> 0.11"
     }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.16"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.33"
+    }
   }
 }
 
 provider "google" {
   project = var.project_id
   region  = var.region
+}
+
+# Auth for the kubernetes/helm providers below: reuses the same gcloud
+# application-default credentials the google provider already uses, so no
+# separate service-account key or kubeconfig file is needed.
+data "google_client_config" "default" {}
+
+provider "kubernetes" {
+  host                   = "https://${module.gke.cluster_endpoint}"
+  token                  = data.google_client_config.default.access_token
+  cluster_ca_certificate = base64decode(module.gke.cluster_ca_certificate)
+}
+
+provider "helm" {
+  kubernetes {
+    host                   = "https://${module.gke.cluster_endpoint}"
+    token                  = data.google_client_config.default.access_token
+    cluster_ca_certificate = base64decode(module.gke.cluster_ca_certificate)
+  }
 }
 
 resource "google_project_service" "dev" {
@@ -146,4 +173,12 @@ module "secrets" {
   }
 
   depends_on = [module.cloudsql, module.gke]
+}
+
+module "observability" {
+  source = "../../modules/observability"
+
+  app_namespace = "workstack"
+
+  depends_on = [module.gke]
 }
