@@ -507,6 +507,13 @@ Full register → cookie → `/auth/me` → workspace creation flow, verified en
 
 **Goal:** package the whole Kubernetes deployment (kind *and* GKE) as a single Helm chart, so it becomes one reviewable, versioned, parameterized unit instead of two parallel piles of raw manifests.
 
+**What Helm actually gives you:**
+
+1. **One chart, not two piles of YAML.** `helm/workstack/` — a single set of templates — with `values-kind.yaml` and `values-gke.yaml` supplying only what differs per environment (in-cluster Postgres vs. Cloud SQL proxy, plaintext Secret vs. Secret Manager CSI, nginx Ingress vs. Gateway API). Environment differences become `{{ if }}` conditionals on boolean flags (`postgres.enabled`, `secretProvider.enabled`, `gateway.enabled`), never a second copy of a template.
+2. **A real release concept.** `helm upgrade --install`, `helm list`, `helm status`, `helm rollback <revision>` — Kubernetes state becomes a versioned, named "release" instead of an untracked pile of applied YAML.
+3. **Reviewable as one unit.** `helm lint` / `helm template` let you validate and preview the entire rendered manifest set before anything touches the cluster — this is what Stage 6 CI runs on every PR.
+4. **A prerequisite for Stage 7 (Argo CD).** Argo CD's Application spec points at `helm/workstack` and layers a values file on top at sync time — GitOps CD needs the app already packaged as a chart to have something to sync.
+
 **Chart layout** (`helm/workstack/`):
 
 ```
